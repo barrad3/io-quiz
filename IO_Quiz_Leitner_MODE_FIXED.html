@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IO/SE – Quiz testowy (Leitner) • tryby</title>
+  <style>
+    :root { --r: 16px; --pad: 16px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #f6f7fb; color: #111; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 18px; }
+    header { display:flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    h1 { font-size: 18px; margin: 0; }
+    .muted { color:#555; font-size: 13px; }
+    .row { display: grid; grid-template-columns: 1.7fr 1fr; gap: 14px; margin-top: 14px; }
+    @media (max-width: 900px){ .row { grid-template-columns: 1fr; } }
+    .card { background: white; border-radius: var(--r); box-shadow: 0 8px 22px rgba(0,0,0,.06); padding: var(--pad); }
+    .qtitle { font-weight: 650; font-size: 16px; margin: 0 0 10px 0; }
+    .qmeta { display:flex; gap: 10px; flex-wrap: wrap; align-items:center; margin-bottom: 10px; }
+    .pill { display:inline-flex; gap:6px; align-items:center; font-size: 12px; padding: 6px 10px; border-radius: 999px; background:#eef1ff; color:#223; }
+    .pill b { font-weight: 700; }
+    .opts { display:flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+    label.opt { display:flex; gap: 10px; align-items:flex-start; padding: 10px; border-radius: 12px; border: 1px solid #e6e8f2; cursor:pointer; }
+    label.opt:hover { background:#fafbff; }
+    input[type="radio"], input[type="checkbox"] { transform: translateY(2px); }
+    .btns { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    button { border: 0; border-radius: 12px; padding: 10px 12px; cursor:pointer; font-weight: 650; }
+    button.primary { background:#2f52ff; color:white; }
+    button.ghost { background:#eef0f7; color:#111; }
+    button.danger { background:#ffecec; color:#8a1010; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .result { margin-top: 12px; border-top: 1px dashed #e3e6f3; padding-top: 12px; display:none; }
+    .ok { color:#0a6b2f; font-weight: 700; }
+    .bad { color:#9b1515; font-weight: 700; }
+    .explain { margin-top: 8px; color:#222; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+    .stats { display:grid; gap: 10px; }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kpi { background:#fafbff; border: 1px solid #e6e8f2; border-radius: 14px; padding: 12px; }
+    .kpi .n { font-size: 22px; font-weight: 800; }
+    .bars { display:grid; gap: 8px; margin-top: 10px; }
+    .barrow { display:grid; grid-template-columns: 70px 1fr 54px; gap: 10px; align-items:center; font-size: 12px; }
+    .bar { height: 10px; border-radius: 999px; background:#eef0f7; overflow:hidden; }
+    .fill { height:100%; width: 0%; background:#2f52ff; }
+    .small { font-size: 12px; color:#444; }
+    textarea { width: 100%; min-height: 90px; border-radius: 12px; border: 1px solid #e6e8f2; padding: 10px; font-family: ui-monospace, monospace; }
+    details summary { cursor:pointer; font-weight: 650; }
+    .kbd { padding: 2px 7px; border-radius: 8px; border: 1px solid #d8dbec; background:#fff; font-size: 12px; }
+    select { width: 100%; padding: 10px; border-radius: 12px; border: 1px solid #e6e8f2; background: #fff; font-weight: 650; }
+    .err { padding: 12px; border-radius: 12px; background:#fff4f4; border:1px solid #ffd6d6; color:#7b1111; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>IO/SE – quiz testowy ze spaced repetition (Leitner)</h1>
+        <div class="muted">Tylko pytania „jak na teście”: jednokrotnego wyboru, wielokrotnego wyboru i P/F. Błędne wracają częściej, poprawne coraz rzadziej. Działa offline i zapisuje postęp w <span class="mono">localStorage</span>.</div>
+      </div>
+      <div class="muted">
+        Skróty: <span class="kbd">Enter</span> – sprawdź / dalej, <span class="kbd">R</span> – reset
+      </div>
+    </header>
+
+    <div class="row">
+      <div class="card" id="quizCard">
+        <div id="fatal" style="display:none" class="err"></div>
+
+        <div class="qmeta">
+          <span class="pill">Pytanie <b id="qNo">–</b>/<b id="qTotal">–</b></span>
+          <span class="pill">Pudełko <b id="boxNo">–</b>/5</span>
+          <span class="pill">Typ <b id="qType">–</b></span>
+        </div>
+
+        <p class="qtitle" id="qText">Ładowanie…</p>
+        <div class="opts" id="opts"></div>
+
+        <div class="btns">
+          <button class="primary" id="submitBtn">Sprawdź</button>
+          <button class="ghost" id="nextBtn" disabled>Dalej</button>
+          <button class="ghost" id="skipBtn">Pomiń</button>
+        </div>
+
+        <div class="result" id="result">
+          <div id="verdict"></div>
+          <div class="explain" id="explain"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="stats">
+          <div class="grid2">
+            <div class="kpi">
+              <div class="small">Dokładność (w tej sesji)</div>
+              <div class="n" id="acc">–</div>
+              <div class="small" id="accDetail">–</div>
+            </div>
+            <div class="kpi">
+              <div class="small">Cel ukończenia</div>
+              <div class="n" id="goal">5</div>
+              <div class="small">Ukończone = wszystkie aktywne pytania w pudełku 5</div>
+            </div>
+          </div>
+
+          <div class="kpi">
+            <div class="small">Rozkład pudełek (1 = najczęściej)</div>
+            <div class="bars" id="bars"></div>
+          </div>
+
+          <div class="kpi">
+            <div class="small">Tryb pytań</div>
+            <select id="modeSel">
+              <option value="mix">Mix (wszystkie)</option>
+              <option value="old">Tylko stary test</option>
+              <option value="new">Tylko dodatkowe</option>
+            </select>
+            <div class="small" id="modeInfo" style="margin-top:8px;">—</div>
+          </div>
+
+          <div class="kpi">
+            <div class="btns" style="margin-top:0">
+              <button class="ghost" id="exportBtn">Eksport postępu</button>
+              <button class="ghost" id="importBtn">Import postępu</button>
+              <button class="danger" id="resetBtn">Reset postępu</button>
+            </div>
+            <div id="ioArea" style="display:none; margin-top:10px;">
+              <div class="small">Wklej/Skopiuj JSON:</div>
+              <textarea id="ioText" spellcheck="false"></textarea>
+              <div class="btns">
+                <button class="primary" id="applyImportBtn">Zastosuj import</button>
+                <button class="ghost" id="closeIoBtn">Zamknij</button>
+              </div>
+            </div>
+          </div>
+
+          <details class="kpi">
+            <summary>Jak to działa (krótko)</summary>
+            <div class="small" style="margin-top:10px; line-height:1.45;">
+              Każde pytanie ma „pudełko” 1–5. Po poprawnej odpowiedzi awansuje o 1 (max 5), po błędzie wraca do 1.
+              Losujemy kolejne pytania z wagami: 1 &gt; 2 &gt; 3 &gt; 4 &gt; 5.
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/** =========================
+ *  Bank pytań (MCQ/Multi/T-F)
+ *  ========================= */
+const QUESTIONS = [{"id":1,"type":"single","box":1,"prompt":"Kt\u00f3re stwierdzenie najlepiej opisuje Software Engineering?","options":["To wy\u0142\u0105cznie pisanie kodu zgodnie ze specyfikacj\u0105","To systematyczne podej\u015bcie do wytwarzania, utrzymania i ewolucji oprogramowania (proces + produkt)","To zarz\u0105dzanie serwerami i infrastruktur\u0105 IT","To tworzenie interfejsu u\u017cytkownika i UX"],"correct":[1],"explain":"SE = in\u017cynierskie podej\u015bcie do ca\u0142ego cyklu \u017cycia oprogramowania (proces + produkt), nie tylko kod.","tag":"new"},{"id":2,"type":"single","box":1,"prompt":"Kt\u00f3ra cecha najbardziej pasuje do kategorii \u201eutrzymanie\u201d (maintainability) w klasycznym podziale jako\u015bci?","options":["Portability","Modifiability","Performance","Usability"],"correct":[1],"explain":"Maintainability obejmuje m.in. \u0142atwo\u015b\u0107 modyfikacji/napraw i dalszego rozwoju.","tag":"new"},{"id":3,"type":"single","box":1,"prompt":"W modelu V-Model najwi\u0119kszy nacisk k\u0142adzie si\u0119 na:","options":["szybkie prototypowanie UI","parowanie wytwarzania z odpowiadaj\u0105cymi mu poziomami test\u00f3w","brak dokumentacji i szybkie iteracje","rozw\u00f3j wy\u0142\u0105cznie inkrementalny bez faz"],"correct":[1],"explain":"Po lewej specyfikacje/wytwarzanie, po prawej odpowiadaj\u0105ce im poziomy test\u00f3w.","tag":"new"},{"id":4,"type":"single","box":1,"prompt":"Model spiralny jest szczeg\u00f3lnie dobry, gdy:","options":["projekt ma minimalne ryzyko i sta\u0142e wymagania","priorytetem jest formalny dow\u00f3d poprawno\u015bci","kluczowe jest zarz\u0105dzanie ryzykiem i iteracyjne podejmowanie decyzji","zesp\u00f3\u0142 nie ma dost\u0119pu do u\u017cytkownik\u00f3w"],"correct":[2],"explain":"Model spiralny jest risk-driven: identyfikacja/mitigacja ryzyk w iteracjach.","tag":"new"},{"id":5,"type":"single","box":1,"prompt":"\u201eAs a <role>, I want <goal>, so that <benefit>\u201d to:","options":["Use case","User story","Requirements traceability matrix","Deployment diagram"],"correct":[1],"explain":"To klasyczny format user story.","tag":"new"},{"id":6,"type":"single","box":1,"prompt":"\u201eSystem powinien obs\u0142u\u017cy\u0107 5000 jednoczesnych u\u017cytkownik\u00f3w\u201d to przyk\u0142ad:","options":["wymagania funkcjonalnego","wymagania niefunkcjonalnego (wydajno\u015b\u0107/pojemno\u015b\u0107)","wymagania przej\u015bciowego (transition)","wymagania projektowego (project constraint)"],"correct":[1],"explain":"To NFR: performance/capacity.","tag":"new"},{"id":7,"type":"single","box":1,"prompt":"Kt\u00f3ry diagram UML najlepiej pokazuje przep\u0142yw czynno\u015bci z rozga\u0142\u0119zieniami i synchronizacj\u0105?","options":["Sequence diagram","Activity diagram","Class diagram","Deployment diagram"],"correct":[1],"explain":"Activity diagram pokazuje przep\u0142yw, decyzje i synchronizacj\u0119 (fork/join).","tag":"new"},{"id":8,"type":"single","box":1,"prompt":"Kt\u00f3ry diagram UML najlepiej pokazuje rozmieszczenie artefakt\u00f3w na w\u0119z\u0142ach infrastruktury?","options":["Deployment diagram","Use case diagram","State machine diagram","Package diagram"],"correct":[0],"explain":"Deployment diagram opisuje w\u0119z\u0142y (nodes) i rozmieszczenie artefakt\u00f3w/komponent\u00f3w.","tag":"new"},{"id":9,"type":"single","box":1,"prompt":"Na diagramie sekwencji UML \u201elifeline\u201d reprezentuje:","options":["klas\u0119 z atrybutami","obiekt/uczestnika interakcji w czasie","w\u0119ze\u0142 infrastruktury","wymaganie biznesowe"],"correct":[1],"explain":"Lifeline = uczestnik (obiekt/aktor/system) bior\u0105cy udzia\u0142 w wymianie komunikat\u00f3w w czasie.","tag":"new"},{"id":10,"type":"single","box":1,"prompt":"Wymagania typu SMART \u2013 litera \u201eM\u201d oznacza:","options":["Modular","Measurable","Manageable","Mapped"],"correct":[1],"explain":"SMART: Specific, Measurable, Achievable, Relevant, Time-bound.","tag":"new"},{"id":11,"type":"single","box":1,"prompt":"Co jest typowym artefaktem w PRINCE2 na poziomie zarz\u0105dzania projektem?","options":["Sprint backlog","Business case","Product increment","Pair programming plan"],"correct":[1],"explain":"PRINCE2 mocno opiera si\u0119 o business case (uzasadnienie biznesowe projektu).","tag":"new"},{"id":12,"type":"single","box":1,"prompt":"Kt\u00f3ra para najlepiej pasuje do Scrum?","options":["Kanban board + WIP limits (jako g\u0142\u00f3wne)","Sprint + sprint review/retrospective","4 fazy: inception, elaboration, construction, transition","Continuous flow bez iteracji"],"correct":[1],"explain":"Scrum = praca w sprintach + ceremonie (review/retro) i artefakty backlog\u00f3w.","tag":"new"},{"id":13,"type":"single","box":1,"prompt":"W XP (Extreme Programming) najbardziej charakterystyczne jest:","options":["pe\u0142na dokumentacja przed kodem","test-first i cz\u0119sta integracja","brak refaktoryzacji","tylko faza utrzymania"],"correct":[1],"explain":"XP promuje TDD, CI, refaktoryzacj\u0119, prostot\u0119 i cz\u0119sty feedback.","tag":"new"},{"id":14,"type":"single","box":1,"prompt":"Najlepszy opis r\u00f3\u017cnicy \u201euse case\u201d vs \u201euser story\u201d to:","options":["Use case jest kr\u00f3tszy ni\u017c user story","User story opisuje techniczne API, use case UX","Use case cz\u0119sto jest bardziej szczeg\u00f3\u0142owy (scenariusze), user story bardziej zwi\u0119z\u0142e (cel + warto\u015b\u0107)","To to samo, tylko inne nazwy"],"correct":[2],"explain":"Use case zwykle zawiera scenariusze g\u0142\u00f3wne i alternatywne; user story jest kr\u00f3tsze i nastawione na warto\u015b\u0107.","tag":"new"},{"id":15,"type":"single","box":1,"prompt":"Single Responsibility Principle (SRP) m\u00f3wi, \u017ce:","options":["klasy powinny dziedziczy\u0107 po jednej bazowej klasie","modu\u0142 powinien mie\u0107 jeden pow\u00f3d do zmiany","interfejsy musz\u0105 mie\u0107 jedn\u0105 metod\u0119","kod powinien mie\u0107 jedn\u0105 lini\u0119 na metod\u0119"],"correct":[1],"explain":"SRP: jedna odpowiedzialno\u015b\u0107 = jeden pow\u00f3d do zmiany.","tag":"new"},{"id":16,"type":"single","box":1,"prompt":"W testowaniu white-box skupiasz si\u0119 g\u0142\u00f3wnie na:","options":["wymaganiach i zachowaniu widocznym z zewn\u0105trz","strukturze kodu/\u015bcie\u017ckach wykonania","dost\u0119pno\u015bci systemu (uptime)","monitoringu produkcyjnego"],"correct":[1],"explain":"White-box = wgl\u0105d w kod/ga\u0142\u0119zie/\u015bcie\u017cki wykonania.","tag":"new"},{"id":17,"type":"single","box":1,"prompt":"Utrzymanie typu adaptive to:","options":["poprawa b\u0142\u0119d\u00f3w","dostosowanie do zmian \u015brodowiska (np. nowy OS/biblioteka/API)","dodanie nowych funkcji na \u017cyczenie klienta","refaktoryzacja bez zmian zachowania"],"correct":[1],"explain":"Adaptive = utrzymanie u\u017cyteczno\u015bci systemu w zmieniaj\u0105cym si\u0119 \u015brodowisku.","tag":"new"},{"id":18,"type":"single","box":1,"prompt":"CI/CD w najprostszym uj\u0119ciu oznacza:","options":["kopiowanie kodu r\u0119cznie na serwer","automatyzacj\u0119 budowania/test\u00f3w oraz automatyczne (lub p\u00f3\u0142automatyczne) wdra\u017canie","pisanie dokumentacji po wdro\u017ceniu","jednorazowe wdro\u017cenie na koniec projektu"],"correct":[1],"explain":"CI = cz\u0119sta integracja + build/test; CD = automatyczne dostarczenie/wdro\u017cenie.","tag":"new"},{"id":19,"type":"single","box":1,"prompt":"Kt\u00f3ra strategia branchingu jest typowo kojarzona z GitFlow?","options":["tylko main i bez ga\u0142\u0119zi","main + develop + feature/release/hotfix","tylko ga\u0142\u0119zie per ticket, bez g\u0142\u00f3wnej ga\u0142\u0119zi","rebase na produkcji"],"correct":[1],"explain":"GitFlow: long-living main/develop + pomocnicze feature/release/hotfix.","tag":"new"},{"id":20,"type":"single","box":1,"prompt":"W architekturze client\u2013server najbardziej typowe jest, \u017ce:","options":["ka\u017cdy w\u0119ze\u0142 jest r\u00f3wnorz\u0119dny (P2P)","serwer \u015bwiadczy us\u0142ugi, a klienci je konsumuj\u0105","nie ma centralnego punktu zarz\u0105dzania danymi","nie da si\u0119 skalowa\u0107 horyzontalnie"],"correct":[1],"explain":"Client\u2013server: klienci wysy\u0142aj\u0105 \u017c\u0105dania, serwer realizuje us\u0142ugi/udost\u0119pnia zasoby.","tag":"new"},{"id":21,"type":"multi","box":1,"prompt":"Kt\u00f3re z poni\u017cszych to wymagania niefunkcjonalne?","options":["System ma umo\u017cliwia\u0107 logowanie u\u017cytkownika","System ma by\u0107 dost\u0119pny 99.9% czasu","Czas odpowiedzi nie powinien przekracza\u0107 200 ms dla 95% zapyta\u0144","System ma generowa\u0107 raport miesi\u0119czny"],"correct":[1,2],"explain":"NFR: availability i performance. Logowanie/raport to wymagania funkcjonalne.","tag":"new"},{"id":22,"type":"multi","box":1,"prompt":"Kt\u00f3re elementy s\u0105 typowe dla Scrum?","options":["Product backlog","Sprint backlog","Daily Scrum","WIP limits jako g\u0142\u00f3wny mechanizm sterowania przep\u0142ywem"],"correct":[0,1,2],"explain":"WIP limits to fundament Kanbana; w Scrum mog\u0105 si\u0119 pojawi\u0107, ale nie s\u0105 \u201etrzonem\u201d metodyki.","tag":"new"},{"id":23,"type":"multi","box":1,"prompt":"Kt\u00f3re praktyki s\u0105 mocno kojarzone z XP?","options":["Pair programming","TDD","Continuous integration","Big Design Up Front jako obowi\u0105zek"],"correct":[0,1,2],"explain":"XP promuje praktyki in\u017cynierskie: pair programming, TDD, CI, refaktoryzacj\u0119.","tag":"new"},{"id":24,"type":"multi","box":1,"prompt":"Kt\u00f3re diagramy UML s\u0105 behawioralne?","options":["Sequence","Activity","Class","State machine"],"correct":[0,1,3],"explain":"Behawioralne: sequence, activity, state machine. Class jest strukturalny.","tag":"new"},{"id":25,"type":"multi","box":1,"prompt":"Kt\u00f3re dzia\u0142ania s\u0105 typowo cz\u0119\u015bci\u0105 pipeline\u2019u CI/CD?","options":["Build","Automatyczne testy","Statyczna analiza kodu / lint","R\u0119czne kopiowanie plik\u00f3w na produkcj\u0119 jako standard"],"correct":[0,1,2],"explain":"CI/CD opiera si\u0119 o automatyzacj\u0119; r\u0119czne kopiowanie to anty-wzorzec.","tag":"new"},{"id":26,"type":"tf","box":1,"prompt":"Prototypowanie zawsze ko\u0144czy si\u0119 tym, \u017ce prototyp trafia na produkcj\u0119.","options":["Prawda","Fa\u0142sz"],"correct":[1],"explain":"Cz\u0119sto prototyp jest \u201ethrowaway\u201d i s\u0142u\u017cy tylko do doprecyzowania wymaga\u0144/UX.","tag":"new"},{"id":27,"type":"tf","box":1,"prompt":"W V-Model testy akceptacyjne s\u0105 powi\u0105zane z wymaganiami biznesowymi/u\u017cytkownika.","options":["Prawda","Fa\u0142sz"],"correct":[0],"explain":"Testy akceptacyjne mapuj\u0105 si\u0119 do wymaga\u0144 u\u017cytkownika/biznesowych.","tag":"new"},{"id":28,"type":"tf","box":1,"prompt":"White-box testing nie wymaga znajomo\u015bci kodu.","options":["Prawda","Fa\u0142sz"],"correct":[1],"explain":"White-box wymaga wgl\u0105du w kod i jego struktur\u0119 (ga\u0142\u0119zie/\u015bcie\u017cki).","tag":"new"},{"id":29,"type":"tf","box":1,"prompt":"Perfective maintenance dotyczy ulepsze\u0144 (np. wydajno\u015b\u0107, UX) bez konieczno\u015bci naprawy b\u0142\u0119d\u00f3w.","options":["Prawda","Fa\u0142sz"],"correct":[0],"explain":"Perfective = usprawnienia/ulepszenia po dostarczeniu.","tag":"new"},{"id":30,"type":"tf","box":1,"prompt":"Diagram deployment jest najlepszy do pokazania relacji dziedziczenia klas.","options":["Prawda","Fa\u0142sz"],"correct":[1],"explain":"Dziedziczenie pokazuje class diagram, nie deployment.","tag":"new"},{"id":31,"type":"single","box":1,"prompt":"W metodzie MoSCoW kategoria \u201eMust have\u201d oznacza:","options":["wymagania mile widziane, je\u015bli zostanie czas","wymagania o wysokim priorytecie, ale niekrytyczne","wymagania, kt\u00f3re MUSZ\u0104 znale\u017a\u0107 si\u0119 w wydaniu produktu/systemu","wymagania, kt\u00f3re na pewno zostan\u0105 od\u0142o\u017cone na p\u00f3\u017aniej"],"correct":[2],"explain":"MoSCoW: Must = absolutnie konieczne; Should = wysokie; Could = mi\u0142e; Won't (this time) = nie teraz.","tag":"new"},{"id":32,"type":"single","box":1,"prompt":"W metodzie MoSCoW \u201eCould have\u201d to:","options":["wymagania po\u017c\u0105dane, ale niekrytyczne","wymagania krytyczne dla biznesu","wymagania wymagane prawnie","wymagania dotycz\u0105ce tylko test\u00f3w"],"correct":[0],"explain":"Could = \u201enice to have\u201d \u2013 mo\u017cna wdro\u017cy\u0107, je\u015bli pozwoli czas/bud\u017cet.","tag":"new"},{"id":33,"type":"single","box":1,"prompt":"Requirements Traceability Matrix (RTM) to dokument, kt\u00f3ry:","options":["pokazuje rozmieszczenie komponent\u00f3w na serwerach","demonstruje zwi\u0105zek mi\u0119dzy wymaganiami a innymi artefaktami (np. testami, komponentami)","zawiera wy\u0142\u0105cznie backlog sprintu","opisuje wy\u0142\u0105cznie scenariusze u\u017cycia"],"correct":[1],"explain":"RTM s\u0142u\u017cy do mapowania wymaga\u0144 na projekt/implementacj\u0119/testy i kontroli pokrycia.","tag":"new"},{"id":34,"type":"multi","box":1,"prompt":"Kryteria akceptacji (acceptance criteria) s\u0105 u\u017cywane m.in. do:","options":["podstawy do test\u00f3w akceptacyjnych powi\u0105zanych z funkcjonalno\u015bci\u0105","okre\u015blenia, kiedy user story mo\u017cna uzna\u0107 za uko\u0144czone (cz\u0119\u015b\u0107 DoD)","zast\u0105pienia ca\u0142ej dokumentacji technicznej","doprecyzowania oczekiwa\u0144 interesariuszy wobec user story"],"correct":[0,1,3],"explain":"AC pomagaj\u0105 walidowa\u0107 oczekiwane zachowanie i mog\u0105 wchodzi\u0107 w Definition of Done.","tag":"new"},{"id":35,"type":"single","box":1,"prompt":"Definition of Done (DoD) najtrafniej opisuje:","options":["list\u0119 os\u00f3b, kt\u00f3re musz\u0105 zaakceptowa\u0107 projekt","wsp\u00f3ln\u0105 definicj\u0119, kiedy element pracy jest \u201euko\u0144czony\u201d wg zespo\u0142u","list\u0119 funkcji, kt\u00f3re trafi\u0105 do produktu","wy\u0142\u0105cznie plan sprintu"],"correct":[1],"explain":"DoD to uzgodnione kryteria uko\u0144czenia dla zespo\u0142u (np. testy, review, dokumentacja).","tag":"new"},{"id":36,"type":"single","box":1,"prompt":"Definition of Ready (DoR) w kontek\u015bcie pracy iteracyjnej oznacza:","options":["warunki, kt\u00f3re musz\u0105 by\u0107 spe\u0142nione, by element m\u00f3g\u0142 wej\u015b\u0107 do realizacji (jest \u201egotowy do pracy\u201d)","warunki zako\u0144czenia projektu","list\u0119 b\u0142\u0119d\u00f3w do naprawy","rodzaj test\u00f3w integracyjnych"],"correct":[0],"explain":"DoR = minimalny poziom doprecyzowania/analizy, by rozpocz\u0105\u0107 implementacj\u0119.","tag":"new"},{"id":37,"type":"single","box":1,"prompt":"Scrumban to podej\u015bcie, kt\u00f3re:","options":["\u0142\u0105czy Scrum (iteracje/ceremonie) i Kanban (pull flow, WIP limits)","zast\u0119puje testy automatyczne testami manualnymi","jest synonimem PRINCE2","wymaga zawsze sztywnego V-Model"],"correct":[0],"explain":"Scrumban to hybryda: planowanie jak w Scrum + przep\u0142yw i WIP jak w Kanban.","tag":"new"},{"id":38,"type":"single","box":1,"prompt":"Limity WIP (Work In Progress) w Kanbanie s\u0142u\u017c\u0105 g\u0142\u00f3wnie do:","options":["zwi\u0119kszenia liczby r\u00f3wnoleg\u0142ych zada\u0144","ograniczenia pracy w toku i poprawy przep\u0142ywu (flow)","zast\u0105pienia backlogu","zmuszenia zespo\u0142u do pracy w sprintach"],"correct":[1],"explain":"WIP limits ograniczaj\u0105 przeci\u0105\u017cenie i zmniejszaj\u0105 kolejki, poprawiaj\u0105c flow.","tag":"new"},{"id":39,"type":"single","box":1,"prompt":"System \u201epull\u201d w Kanbanie oznacza, \u017ce:","options":["praca jest przydzielana z g\u00f3ry przez managera","zesp\u00f3\u0142 \u201ewci\u0105ga\u201d kolejne zadanie, gdy ma na to przepustowo\u015b\u0107","ka\u017cdy zawsze pracuje nad wszystkim naraz","plan sprintu jest sta\u0142y i niezmienny"],"correct":[1],"explain":"Pull = dobieranie pracy w miar\u0119 wolnych mocy, zamiast \u201ewypychania\u201d zada\u0144 do ludzi.","tag":"new"},{"id":40,"type":"single","box":1,"prompt":"Pull request w narz\u0119dziach typu GitHub/GitLab s\u0142u\u017cy do:","options":["usuni\u0119cia historii commit\u00f3w","zaproponowania zmian i poproszenia o ich review + merge do docelowej ga\u0142\u0119zi","automatycznego wdro\u017cenia na produkcj\u0119 bez test\u00f3w","stworzenia nowego repozytorium"],"correct":[1],"explain":"PR pozwala dyskutowa\u0107, robi\u0107 review i dopiero potem scala\u0107 zmiany.","tag":"new"},{"id":41,"type":"single","box":1,"prompt":"W GitFlow ga\u0142\u0105\u017a \u201ehotfix\u201d jest zwykle tworzona po to, aby:","options":["rozwija\u0107 du\u017ce funkcje przez wiele miesi\u0119cy","szybko naprawi\u0107 b\u0142\u0105d na produkcji (release) i zmergowa\u0107 poprawk\u0119 z powrotem","zast\u0105pi\u0107 testy automatyczne","przechowywa\u0107 prototypy UI"],"correct":[1],"explain":"Hotfix = pilna poprawka wersji produkcyjnej (zwykle od main) i synchronizacja z develop.","tag":"new"},{"id":42,"type":"single","box":1,"prompt":"W GitFlow rola ga\u0142\u0119zi \u201emain\u201d to najcz\u0119\u015bciej:","options":["miejsce na eksperymenty i prototypy","oficjalna historia wydanych wersji (powinna by\u0107 stabilna)","ga\u0142\u0105\u017a tylko do test\u00f3w jednostkowych","ga\u0142\u0105\u017a tworzona jedynie lokalnie"],"correct":[1],"explain":"Main trzyma stabilne wydania; develop jest zwykle ga\u0142\u0119zi\u0105 integracyjn\u0105.","tag":"new"},{"id":43,"type":"single","box":1,"prompt":"Continuous Integration (CI) polega przede wszystkim na:","options":["rzadkim \u0142\u0105czeniu zmian na koniec projektu","cz\u0119stym integrowaniu zmian z automatycznym buildem/testami","wdra\u017caniu na produkcj\u0119 po ka\u017cdym commicie","pisaniu dokumentacji zamiast test\u00f3w"],"correct":[1],"explain":"CI = cz\u0119sta integracja + automatyczne sprawdzanie jako\u015bci (build/test).","tag":"new"},{"id":44,"type":"multi","box":1,"prompt":"Co typowo wchodzi w \u201ecode review\u201d (przegl\u0105d kodu) i mo\u017ce zosta\u0107 w nim wykryte?","options":["problemy z nazewnictwem i stylem","zbyt g\u0142\u0119bokie zagnie\u017cd\u017cenia (if w if...) i d\u0142ugie funkcje","duplikacja kodu lub naruszenie SRP","faktyczny uptime serwera w produkcji (SLA)"],"correct":[0,1,2],"explain":"Review wykrywa problemy jako\u015bciowe/architektoniczne w kodzie; uptime to monitoring operacyjny.","tag":"new"},{"id":45,"type":"single","box":1,"prompt":"\u201eSmoke tests\u201d to testy, kt\u00f3re maj\u0105 na celu:","options":["sprawdzi\u0107, czy aplikacja jest gotowa/stabilna do dalszych test\u00f3w","zmierzy\u0107 pe\u0142n\u0105 wydajno\u015b\u0107 systemu pod obci\u0105\u017ceniem","udowodni\u0107 formalnie poprawno\u015b\u0107 algorytmu","zast\u0105pi\u0107 testy jednostkowe"],"correct":[0],"explain":"Smoke = szybki, podstawowy zestaw sprawdzaj\u0105cy, czy build \u201ew og\u00f3le \u017cyje\u201d.","tag":"new"},{"id":46,"type":"single","box":1,"prompt":"\u201eRegression tests\u201d maj\u0105 na celu:","options":["wykry\u0107, czy zmiany nie popsu\u0142y wcze\u015bniej dzia\u0142aj\u0105cych funkcji","sprawdzi\u0107 wy\u0142\u0105cznie UI","zast\u0105pi\u0107 testy akceptacyjne klienta","sprawdzi\u0107 tylko dokumentacj\u0119"],"correct":[0],"explain":"Regression = ochrona przed \u201ecofni\u0119ciem si\u0119\u201d jako\u015bci funkcji po zmianach.","tag":"new"},{"id":47,"type":"single","box":1,"prompt":"\u201eUser Acceptance Tests (UAT)\u201d s\u0105 wykonywane najcz\u0119\u015bciej przez:","options":["kompilator","klienta/u\u017cytkownik\u00f3w (stron\u0119 biznesow\u0105) w celu sprawdzenia, czy produkt spe\u0142nia potrzeby","wy\u0142\u0105cznie tester\u00f3w automatyzuj\u0105cych","narz\u0119dzie do statycznej analizy kodu"],"correct":[1],"explain":"UAT to testy akceptacyjne zwykle po stronie klienta/u\u017cytkownika.","tag":"new"},{"id":48,"type":"single","box":1,"prompt":"Kt\u00f3re zestawienie najlepiej opisuje r\u00f3\u017cnic\u0119 test\u00f3w unit vs integration?","options":["Unit = test ca\u0142ego systemu; Integration = test pojedynczej funkcji","Unit = ma\u0142y zakres (np. funkcja/klasa); Integration = wsp\u00f3\u0142dzia\u0142anie kilku modu\u0142\u00f3w","Unit = tylko manualne; Integration = tylko automatyczne","Unit = zawsze na produkcji; Integration = zawsze lokalnie"],"correct":[1],"explain":"Unit testuje ma\u0142e elementy w izolacji; integration testuje wsp\u00f3\u0142prac\u0119 komponent\u00f3w.","tag":"new"},{"id":49,"type":"multi","box":1,"prompt":"Kt\u00f3re typy test\u00f3w wymieniane s\u0105 jako przyk\u0142ady zakresu (scope) testowania?","options":["Unit tests","Integration tests","Performance tests","Security/Penetration tests"],"correct":[0,1,2,3],"explain":"W praktyce scope obejmuje m.in. unit/integration/performance/security (w zale\u017cno\u015bci od potrzeb).","tag":"new"},{"id":50,"type":"single","box":1,"prompt":"Test-Driven Development (TDD) w skr\u00f3cie oznacza, \u017ce:","options":["najpierw piszesz kod, potem dopiero testy","najpierw piszesz test, potem minimalny kod \u017ceby przeszed\u0142, a potem refaktoryzujesz","testy robi tylko klient na ko\u0144cu","piszesz tylko testy manualne"],"correct":[1],"explain":"TDD: Red \u2192 Green \u2192 Refactor.","tag":"new"},{"id":51,"type":"single","box":1,"prompt":"Klasyczny cykl TDD nazywa si\u0119:","options":["Plan\u2013Do\u2013Check\u2013Act","Red\u2013Green\u2013Refactor","Build\u2013Deploy\u2013Monitor","Fork\u2013Join\u2013Merge"],"correct":[1],"explain":"Red (test fail) \u2192 Green (minimalny kod) \u2192 Refactor (poprawa jako\u015bci).","tag":"new"},{"id":52,"type":"single","box":1,"prompt":"Behaviour-Driven Development (BDD) najcz\u0119\u015bciej zapisuje oczekiwane zachowanie w formacie:","options":["Try\u2013Catch\u2013Finally","Given\u2013When\u2013Then (Gherkin)","Init\u2013Run\u2013Stop","Actor\u2013UseCase\u2013Class"],"correct":[1],"explain":"BDD opisuje zachowania u\u017cytkownika; Gherkin: Given/When/Then.","tag":"new"},{"id":53,"type":"single","box":1,"prompt":"Cucumber to narz\u0119dzie, kt\u00f3re w kontek\u015bcie BDD s\u0142u\u017cy do:","options":["rysowania diagram\u00f3w UML","pisania wykonywalnych specyfikacji w j\u0119zyku naturalnym (Gherkin) i mapowania na testy","hostowania repozytori\u00f3w Git","monitorowania log\u00f3w w produkcji"],"correct":[1],"explain":"Cucumber wi\u0105\u017ce scenariusze Gherkina z implementacj\u0105 test\u00f3w.","tag":"new"},{"id":54,"type":"single","box":1,"prompt":"W architekturze Peer-to-Peer (P2P) najbardziej typowe jest, \u017ce:","options":["zawsze istnieje jeden centralny serwer","w\u0119z\u0142y mog\u0105 by\u0107 jednocze\u015bnie klientami i serwerami","nie ma ryzyk bezpiecze\u0144stwa","skalowanie jest niemo\u017cliwe"],"correct":[1],"explain":"P2P: w\u0119z\u0142y wsp\u00f3\u0142dziel\u0105 zasoby i mog\u0105 pe\u0142ni\u0107 obie role; brak jednego punktu awarii, ale wi\u0119ksza z\u0142o\u017cono\u015b\u0107 i ryzyka.","tag":"new"},{"id":55,"type":"single","box":1,"prompt":"Kt\u00f3ra z opcji jest trafnym powodem, aby rozwa\u017cy\u0107 mikrous\u0142ugi (microservices)?","options":["ma\u0142y zesp\u00f3\u0142 i prosta domena, wszystko zmienia si\u0119 razem","wiele zespo\u0142\u00f3w pracuj\u0105cych nad r\u00f3\u017cnymi us\u0142ugami i potrzeba niezale\u017cnego skalowania","brak jakichkolwiek API mi\u0119dzy komponentami","priorytetem jest jedna wsp\u00f3lna baza kodu bez narzutu koordynacji"],"correct":[1],"explain":"Mikrous\u0142ugi pasuj\u0105, gdy wiele zespo\u0142\u00f3w rozwija niezale\u017cne us\u0142ugi i trzeba skalowa\u0107 cz\u0119\u015bci systemu osobno.","tag":"new"},{"id":56,"type":"multi","box":1,"prompt":"Kt\u00f3re stwierdzenia pasuj\u0105 do mikrous\u0142ug?","options":["niezale\u017cny rozw\u00f3j i skalowanie cz\u0119\u015bci systemu","minimalna wsp\u00f3\u0142dzielona logika/dane przy jasnych interfejsach API","zawsze jeden monolityczny deployment","mo\u017cliwa niejednorodno\u015b\u0107 technologii mi\u0119dzy us\u0142ugami"],"correct":[0,1,3],"explain":"Mikrous\u0142ugi sprzyjaj\u0105 niezale\u017cno\u015bci i mog\u0105 u\u017cywa\u0107 r\u00f3\u017cnych technologii; przeciwie\u0144stwem jest jeden monolit.","tag":"new"},{"id":57,"type":"single","box":1,"prompt":"Kt\u00f3ra sytuacja jest typowym argumentem za wyborem monolitu?","options":["wiele zespo\u0142\u00f3w, ka\u017cdy rozwija osobn\u0105 us\u0142ug\u0119","pre-produkt/proof-of-concept z cz\u0119stymi zmianami wymaga\u0144 i ma\u0142ym zespo\u0142em","wysoka potrzeba niezale\u017cnego wdra\u017cania dziesi\u0105tek us\u0142ug","heterogeniczna infrastruktura i rozproszona domena"],"correct":[1],"explain":"Monolit bywa lepszy na start (PoC), przy ma\u0142ej skali i ma\u0142ym zespole (mniej narzutu).","tag":"new"},{"id":58,"type":"single","box":1,"prompt":"Open/Closed Principle (OCP) m\u00f3wi, \u017ce:","options":["klasy maj\u0105 by\u0107 otwarte na modyfikacje, zamkni\u0119te na rozszerzenia","klasy maj\u0105 by\u0107 otwarte na rozszerzenia, zamkni\u0119te na modyfikacje","ka\u017cda klasa musi mie\u0107 jedn\u0105 metod\u0119","modu\u0142y wysokiego poziomu zale\u017c\u0105 od niskiego poziomu"],"correct":[1],"explain":"OCP: \u0142atwo rozszerza\u0107 zachowanie bez zmiany istniej\u0105cego kodu (np. przez polimorfizm/abstrakcj\u0119).","tag":"new"},{"id":59,"type":"single","box":1,"prompt":"Liskov Substitution Principle (LSP) oznacza, \u017ce:","options":["klasy bazowe zawsze s\u0105 szybsze","obiekt klasy pochodnej powinien da\u0107 si\u0119 u\u017cy\u0107 wsz\u0119dzie tam, gdzie oczekiwany jest obiekt klasy bazowej, bez psucia logiki","nie wolno u\u017cywa\u0107 dziedziczenia","interfejsy musz\u0105 by\u0107 du\u017ce"],"correct":[1],"explain":"LSP: podstawienie typu pochodnego nie mo\u017ce zmienia\u0107 poprawnego zachowania programu.","tag":"new"},{"id":60,"type":"single","box":1,"prompt":"Interface Segregation Principle (ISP) sugeruje, \u017ce:","options":["lepiej mie\u0107 jeden wielki interfejs \u201edo wszystkiego\u201d","klienci nie powinni implementowa\u0107 metod, kt\u00f3rych nie u\u017cywaj\u0105 \u2013 lepsze ma\u0142e, wyspecjalizowane interfejsy","interfejs\u00f3w w og\u00f3le nie nale\u017cy u\u017cywa\u0107","ka\u017cdy modu\u0142 musi zale\u017ce\u0107 od konkret\u00f3w"],"correct":[1],"explain":"ISP: mniejsze, wyspecjalizowane interfejsy zamiast jednego \u201egrubego\u201d.","tag":"new"},{"id":61,"type":"single","box":1,"prompt":"Dependency Inversion Principle (DIP) m\u00f3wi m.in., \u017ce:","options":["modu\u0142y wysokiego poziomu powinny zale\u017ce\u0107 od modu\u0142\u00f3w niskiego poziomu","szczeg\u00f3\u0142y powinny zale\u017ce\u0107 od abstrakcji, a nie odwrotnie","abstrakcje powinny zale\u017ce\u0107 od szczeg\u00f3\u0142\u00f3w implementacji","nie nale\u017cy u\u017cywa\u0107 abstrakcji"],"correct":[1],"explain":"DIP: high-level i low-level zale\u017c\u0105 od abstrakcji; szczeg\u00f3\u0142y zale\u017c\u0105 od abstrakcji.","tag":"new"},{"id":62,"type":"single","box":1,"prompt":"W kontek\u015bcie DevOps najbardziej trafna definicja to:","options":["metodyka stricte do pisania dokumentacji","zestaw praktyk i narz\u0119dzi integruj\u0105cych Dev i Ops w celu automatyzacji i skr\u00f3cenia cyklu wytwarzania","synonim UML","spos\u00f3b rysowania diagram\u00f3w wdro\u017ceniowych"],"correct":[1],"explain":"DevOps integruje development i operations oraz automatyzuje procesy, skracaj\u0105c cykl \u017cycia systemu.","tag":"new"},{"id":63,"type":"single","box":1,"prompt":"Kt\u00f3ry diagram UML najlepiej nadaje si\u0119 do pokazania przej\u015b\u0107 mi\u0119dzy stanami obiektu?","options":["State machine diagram","Deployment diagram","Use case diagram","Package diagram"],"correct":[0],"explain":"State machine pokazuje stany i przej\u015bcia (eventy, guardy, akcje).","tag":"new"},{"id":64,"type":"single","box":1,"prompt":"Use case diagram UML pokazuje przede wszystkim:","options":["kolejno\u015b\u0107 komunikat\u00f3w mi\u0119dzy obiektami","aktor\u00f3w i przypadki u\u017cycia (cele/interakcje na wysokim poziomie)","rozmieszczenie systemu na serwerach","dziedziczenie i atrybuty klas"],"correct":[1],"explain":"Use case = aktorzy + cele/funkcje systemu z perspektywy u\u017cytkownika.","tag":"new"},{"id":65,"type":"single","box":1,"prompt":"Sequence diagram UML pokazuje przede wszystkim:","options":["struktur\u0119 klas w systemie","wymian\u0119 komunikat\u00f3w w czasie pomi\u0119dzy uczestnikami (lifelines)","priorytety wymaga\u0144 MoSCoW","rozmieszczenie artefakt\u00f3w na node\u2019ach"],"correct":[1],"explain":"Sequence diagram opisuje interakcje i komunikaty w osi czasu.","tag":"new"},{"id":66,"type":"single","box":1,"prompt":"Co to jest in\u017cynieria oprogramowania?","options":["Proces organizacji pracy nad oprogramowaniem w zakresie planowania, szacowania koszt\u00f3w i zarz\u0105dzania harmonogramem prac","Zbieranie wymaga\u0144 i projekt oprogramowania zgodnie z nimi za pomoc\u0105 diagram\u00f3w UML","Przygotowanie diagram\u00f3w UML oraz implementacja aplikacji zgodnie z projektem","Proces projektowania, rozwijania, testowania i utrzymywania oprogramowania przy u\u017cyciu dobrze zdefiniowanych zasad"],"correct":[3],"explain":"Najpe\u0142niejsza definicja obejmuje ca\u0142y cykl \u017cycia: projektowanie, wytwarzanie, testy i utrzymanie.","tag":"old"},{"id":67,"type":"multi","box":1,"prompt":"Jakie s\u0105 podstawowe cele dla In\u017cynierii Oprogramowania? (wybierz 2)","options":["Monitorowanie post\u0119pu prac","Szacowanie kosztu, zasob\u00f3w potrzebnych do realizacji i czasu trwania projektu","Efektywne testowanie oprogramowania","Komunikacja z interesariuszami","Projektowanie architektury rozwi\u0105zania"],"correct":[2,4],"explain":"Na poziomie IO cz\u0119sto wskazuje si\u0119 m.in. architektur\u0119 i zapewnienie jako\u015bci (tu: testowanie) jako cele kluczowe.","tag":"old"},{"id":68,"type":"multi","box":1,"prompt":"Jaka wiedza jest potrzebna do identyfikacji i sformu\u0142owania wymaga\u0144? (wybierz 2)","options":["Stos technologiczny dla oprogramowania","Harmonogram prac","Ograniczenia i uwarunkowania","Oczekiwania interesariuszy","Zesp\u00f3\u0142, kt\u00f3ry b\u0119dzie pracowa\u0142 nad oprogramowaniem"],"correct":[2,3],"explain":"Do wymaga\u0144 potrzebujesz kontekstu: ogranicze\u0144/uwarunkowa\u0144 oraz oczekiwa\u0144 interesariuszy.","tag":"old"},{"id":69,"type":"multi","box":1,"prompt":"Jakie s\u0105 g\u0142\u00f3wne zalety przygotowywania prototyp\u00f3w? (wybierz 2)","options":["Zbieranie wczesnej informacji zwrotnej na temat u\u017cyteczno\u015bci","Pozwala polepszy\u0107 jako\u015b\u0107 produktu","Mog\u0105 by\u0107 traktowane jako niezale\u017cne produkty","Definiuj\u0105 zakres","\u0106wiczenia dla zespo\u0142u z nowych technologii"],"correct":[0,3],"explain":"Prototypy pomagaj\u0105 zebra\u0107 szybki feedback i doprecyzowa\u0107 wymagania/zakres.","tag":"old"},{"id":70,"type":"single","box":1,"prompt":"Kt\u00f3ra z poni\u017cszych nie jest prawid\u0142ow\u0105 kategori\u0105 wymaga\u0144?","options":["Biznesowe (business)","Projektowe (project)","Jako\u015bciowe (quality)","Implementacyjne (development)","Funkcjonalne (functional)"],"correct":[3],"explain":"\u201eImplementacyjne/development\u201d nie jest typow\u0105 kategori\u0105 wymaga\u0144; to raczej faza/aktywno\u015b\u0107.","tag":"old"},{"id":71,"type":"single","box":1,"prompt":"\u201ePrace powinny by\u0107 realizowane zgodnie z metodologi\u0105 iteracyjn\u0105 z cyklicznymi prezentacjami przyrost\u00f3w dla klienta\u201d \u2013 to przyk\u0142ad jakiego wymagania?","options":["Funkcjonalne","Nie-funkcjonalne","Jako\u015bciowe","Projektowe"],"correct":[3],"explain":"To wymaganie dotycz\u0105ce sposobu prowadzenia projektu/procesu, czyli projektowe.","tag":"old"},{"id":72,"type":"single","box":1,"prompt":"\u201eSystem powinien by\u0107 skalowany wraz z liczb\u0105 u\u017cytkownik\u00f3w przyrastaj\u0105cych w kolejnych latach u\u017cytkowania\u201d \u2013 to przyk\u0142ad jakiego wymagania?","options":["Funkcjonalne","Nie-funkcjonalne","Jako\u015bciowe","Projektowe"],"correct":[2],"explain":"Skalowalno\u015b\u0107 to atrybut jako\u015bci (quality attribute) \u2013 wymaganie jako\u015bciowe/niefunkcjonalne.","tag":"old"},{"id":73,"type":"single","box":1,"prompt":"Co znaczy SMART?","options":["Specific, metrics, action, relevant, time-bound","Specific, measurable, achievable, relevant, time-bound","Scope, metrics, action, risk, time-bound","Schedule, monitoring, action, risk, time-bound"],"correct":[1],"explain":"SMART: Specific, Measurable, Achievable, Relevant, Time-bound.","tag":"old"},{"id":74,"type":"multi","box":1,"prompt":"Dobre oprogramowanie powinno posiada\u0107 nast\u0119puj\u0105ce cechy ze wzgl\u0119du na operacyjno\u015b\u0107 (wybierz 3)","options":["Wydajno\u015b\u0107","Skalowalno\u015b\u0107","U\u017cyteczno\u015b\u0107","Zdolno\u015b\u0107 adaptacji","Bezpiecze\u0144stwo","Reu\u017cywalno\u015b\u0107"],"correct":[0,2,4],"explain":"Operacyjno\u015b\u0107/\u2018operational\u2019 obejmuje m.in. wydajno\u015b\u0107, u\u017cyteczno\u015b\u0107 i bezpiecze\u0144stwo.","tag":"old"},{"id":75,"type":"multi","box":1,"prompt":"Jakie s\u0105 dost\u0119pne warianty Software Development Lifecycle (SDLC)? (wybierz 2)","options":["V-Model","Recursive","Flow","Spiral","Sequential"],"correct":[0,3],"explain":"Typowe warianty SDLC z listy to V-Model i Spiral.","tag":"old"},{"id":76,"type":"single","box":1,"prompt":"W kt\u00f3rej fazie Software Development Lifecycle wytwarzane jest oprogramowanie zgodnie z projektem?","options":["Initiating","Building","Designing","Defining","Planning"],"correct":[1],"explain":"Budowanie (Building/Construction) to faza implementacji zgodnie z projektem.","tag":"old"},{"id":77,"type":"single","box":1,"prompt":"W jaki spos\u00f3b opisuje si\u0119 funkcjonalno\u015bci systemu?","options":["UML diagram przypadk\u00f3w u\u017cycia (use case)","Macierz \u015bledzenia wymaga\u0144 (requirements traceability matrix)","Historyjki u\u017cytkownika (user stories)","Projekt prototypu"],"correct":[0],"explain":"Use case (diagram i/lub opisy) to klasyczny spos\u00f3b opisu funkcjonalno\u015bci na wysokim poziomie.","tag":"old"},{"id":78,"type":"multi","box":1,"prompt":"Jakie diagramy UML zaliczaj\u0105 si\u0119 do behawioralnych (behavioral diagrams)? (wybierz 3)","options":["Class diagram","Use case diagram","Deployment diagram","Sequence diagram","State machine diagram","Component diagram"],"correct":[1,3,4],"explain":"Behawioralne: use case, sequence, state machine. Class/deployment/component s\u0105 strukturalne.","tag":"old"},{"id":79,"type":"single","box":1,"prompt":"Diagram klas jest wykorzystywany do modelowania:","options":["Algorytm\u00f3w","Decyzjny","Wymaga\u0144 funkcjonalnych","Sekwencji czynno\u015bci"],"correct":[2],"explain":"Diagram klas modeluje struktur\u0119 (klasy, relacje), cz\u0119sto jako cz\u0119\u015b\u0107 modelowania rozwi\u0105zania/obszar\u00f3w funkcji.","tag":"old"},{"id":80,"type":"single","box":1,"prompt":"Kt\u00f3ry diagram UML s\u0142u\u017cy do reprezentacji fizycznej architektury rozwi\u0105zania?","options":["Przypadk\u00f3w u\u017cycia (use case)","Aktywno\u015bci (activity)","Venn diagram (venn)","Wdro\u017cenia (deployment)"],"correct":[3],"explain":"Fizyczna architektura/rozmieszczenie = deployment diagram.","tag":"old"},{"id":81,"type":"single","box":1,"prompt":"Diagram aktywno\u015bci s\u0142u\u017cy do reprezentowania:","options":["Przep\u0142ywu kontroli w systemie","Sekwencji krok\u00f3w wykonywan\u0105 przez fragment systemu","Interakcje pomi\u0119dzy komponentami","Przej\u015bcia pomi\u0119dzy stanami obiekt\u00f3w w systemie"],"correct":[0],"explain":"Activity diagram pokazuje przep\u0142yw czynno\u015bci i decyzje (flow of control).","tag":"old"},{"id":82,"type":"single","box":1,"prompt":"Kt\u00f3ry diagram UML k\u0142adzie nacisk na uporz\u0105dkowanie czasowe komunikat\u00f3w?","options":["Klas","Przypadk\u00f3w u\u017cycia","Aktywno\u015bci","Sekwencji","Stan\u00f3w"],"correct":[3],"explain":"Sequence diagram pokazuje komunikaty w czasie.","tag":"old"},{"id":83,"type":"multi","box":1,"prompt":"Kt\u00f3re dwa z poni\u017cszych to zasady SOLID? (wybierz 2)","options":["Composition over Inheritance Principle","The Interface Segregation Principle","Don't Repeat Yourself Principle","The Open-Closed Principle","Separation of Concerns Principle"],"correct":[1,3],"explain":"SOLID zawiera m.in. ISP i OCP. DRY i SoC to inne (wa\u017cne) zasady, ale nie SOLID.","tag":"old"},{"id":84,"type":"single","box":1,"prompt":"Kt\u00f3ra architektura podkre\u015bla scentralizowan\u0105 struktur\u0119 komponent\u00f3w wdra\u017canych jednocze\u015bnie?","options":["Peer-to-Peer Architecture","Monolithic Architecture","Service-Oriented Architecture","Client-Server Architecture"],"correct":[1],"explain":"Monolit jest wdra\u017cany jako jedna ca\u0142o\u015b\u0107 (centralnie).","tag":"old"},{"id":85,"type":"multi","box":1,"prompt":"Kt\u00f3re dwa zdania dotycz\u0105ce testowania white box s\u0105 prawdziwe? (wybierz 2)","options":["Wewn\u0119trzna struktura/projekt testowanego artefaktu s\u0105 znane testerowi","Opiera si\u0119 o testowanie wewn\u0119trznego kodu pod k\u0105tem poprawno\u015bci i wydajno\u015bci","Wewn\u0119trzna struktura/projekt testowanego artefaktu nie s\u0105 znane testerowi","Opiera si\u0119 o testowanie funkcjonalno\u015bci oprogramowania, aby zapewni\u0107, \u017ce spe\u0142niono wymagania i zrealizowano specyfikacj\u0119"],"correct":[0,1],"explain":"White-box: tester zna wn\u0119trze (struktur\u0119 kodu) i testuje \u015bcie\u017cki/ga\u0142\u0119zie; 3\u20134 opisuj\u0105 black-box.","tag":"old"},{"id":86,"type":"single","box":1,"prompt":"Utrzymanie aplikacji obejmuj\u0105ce modyfikacje po dostawie w celu utrzymania oprogramowania w zmieniaj\u0105cym si\u0119 \u015brodowisku to:","options":["Preventive maintenance (zapobiegawcza)","Perfective maintenance (doskonal\u0105ca)","Adaptive maintenance (adaptacyjna)","Corrective maintenance (naprawcza)"],"correct":[2],"explain":"Adaptive maintenance = dostosowanie do zmian \u015brodowiska.","tag":"old"},{"id":87,"type":"single","box":1,"prompt":"Kt\u00f3ra zasada dzia\u0142ania nie nale\u017cy do zalece\u0144 zwi\u0105zanych z CI/CD?","options":["Continuous testing","Continuous development","Continuous deployment","Continuous integration"],"correct":[1],"explain":"Typowe: CI, (continuous) testing, CD (delivery/deployment). \u201eContinuous development\u201d nie jest standardowym elementem.","tag":"old"},{"id":88,"type":"single","box":1,"prompt":"Na jakie pytania odpowiadaj\u0105 trzy elementy User Story?","options":["Kto? Co? Dlaczego?","Kto? Gdzie? Dlaczego?","Co? Kiedy? Dlaczego?","Kto? Co? Gdzie?"],"correct":[0],"explain":"User story: rola (kto), cel (co), warto\u015b\u0107/benefit (dlaczego).","tag":"old"},{"id":89,"type":"single","box":1,"prompt":"W kt\u00f3rym podej\u015bciu opisuje si\u0119 interakcje z systemem w sk\u0142adni Gherkin?","options":["Test-driven development (TDD)","Domain-driven design (DDD)","Behaviour-driven development (BDD)","Design by contract"],"correct":[2],"explain":"Gherkin (Given/When/Then) to typowy zapis dla BDD.","tag":"old"},{"id":90,"type":"single","box":1,"prompt":"Zgodnie z podej\u015bciem GitFlow jakie dwie ga\u0142\u0119zie s\u0105 tworzone inicjalnie w repozytorium kodu?","options":["master i feature","master i develop","master i release","master i support"],"correct":[1],"explain":"GitFlow startuje z master/main i develop.","tag":"old"},{"id":91,"type":"multi","box":1,"prompt":"Kt\u00f3re metodologie wytwarzania oprogramowania zaliczamy do zwinnych? (wybierz 3)","options":["PRINCE 2","DSDM","Kanban","Extreme Programming","Waterfall","PMBOK"],"correct":[1,2,3],"explain":"Zwinne: DSDM, Kanban, XP. Waterfall/PMBOK/PRINCE2 to podej\u015bcia bardziej planistyczne/zarz\u0105dcze.","tag":"old"},{"id":92,"type":"single","box":1,"prompt":"Kt\u00f3re z poni\u017cszych nie pasuje do warto\u015bci agile manifesto?","options":["Individuals and interactions (Osoby i interakcje)","Tools and processes (Narz\u0119dzia i procesy)","Customer collaboration (Wsp\u00f3\u0142praca klienta)","Responding to change over following a plan (Reagowanie na zmiany zamiast pod\u0105\u017cania za planem)"],"correct":[1],"explain":"W manife\u015bcie jest: individuals and interactions over processes and tools \u2014 wi\u0119c samo \u201etools and processes\u201d nie jest warto\u015bci\u0105.","tag":"old"},{"id":93,"type":"single","box":1,"prompt":"Kt\u00f3ra z metodologii zwinnych opiera si\u0119 na: (i) iteracjach dostarczaj\u0105cych przyrost produktu, (ii) skupieniu na jako\u015bci kodu i dobrych praktykach developerskich?","options":["Kanban","Extreme Programming","Lean","Scrum"],"correct":[1],"explain":"XP k\u0142adzie mocny nacisk na praktyki in\u017cynierskie i jako\u015b\u0107 (TDD, refaktoryzacja, CI, pair programming).","tag":"old"}];
+
+/** =========================
+ *  Filtr trybu (mix / old / new)
+ *  ========================= */
+const MODE_KEY = "io_leitner_mode_v2";
+let mode = (localStorage.getItem(MODE_KEY) || "mix");
+function activeQuestions(){
+  if(mode === "old") return QUESTIONS.filter(q => q.tag === "old");
+  if(mode === "new") return QUESTIONS.filter(q => q.tag === "new");
+  return QUESTIONS;
+}
+
+/** =========================
+ *  Leitner – logika
+ *  ========================= */
+const STORAGE_KEY = "io_leitner_progress_v2";
+const BOX_MAX = 5;
+const BOX_WEIGHTS = {1: 0.45, 2: 0.25, 3: 0.15, 4: 0.10, 5: 0.05};
+
+let state = {
+  boxes: {},     // {id: box}
+  stats: {seen:0, correct:0, wrong:0},
+  session: {seen:0, correct:0, wrong:0},
+  lastId: null
+};
+
+function clampBox(b){ return Math.max(1, Math.min(BOX_MAX, Number(b)||1)); }
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(parsed && typeof parsed === "object" && parsed.boxes){
+        state = parsed;
+      }
+    }
+  }catch(e){ /* ignore */ }
+  // init boxes for ALL questions (so switching mode doesn't lose progress)
+  for(const q of QUESTIONS){
+    if(!(q.id in state.boxes)) state.boxes[q.id] = 1;
+  }
+  saveState();
+}
+
+function saveState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function resetState(){
+  state = {
+    boxes: {},
+    stats: {seen:0, correct:0, wrong:0},
+    session: {seen:0, correct:0, wrong:0},
+    lastId: null
+  };
+  for(const q of QUESTIONS) state.boxes[q.id] = 1;
+  saveState();
+}
+
+function weightedChoice(availableBoxes){
+  let total = 0;
+  for(const b of availableBoxes) total += (BOX_WEIGHTS[b.box] || 0) * b.count;
+  let r = Math.random() * total;
+  for(const b of availableBoxes){
+    r -= (BOX_WEIGHTS[b.box] || 0) * b.count;
+    if(r <= 0) return b.box;
+  }
+  return availableBoxes[0].box;
+}
+
+function pickNextQuestion(){
+  const act = activeQuestions();
+  if(act.length === 0) return QUESTIONS[0];
+
+  const buckets = {1:[],2:[],3:[],4:[],5:[]};
+  for(const q of act){
+    const box = clampBox(state.boxes[q.id] || 1);
+    buckets[box].push(q);
+  }
+  const available = Object.keys(buckets)
+    .map(k => ({box: Number(k), count: buckets[k].length}))
+    .filter(x => x.count > 0);
+
+  const chosenBox = weightedChoice(available);
+  let candidates = buckets[chosenBox];
+
+  if(state.lastId && candidates.length > 1){
+    const filtered = candidates.filter(q => q.id !== state.lastId);
+    if(filtered.length) candidates = filtered;
+  }
+  const q = candidates[Math.floor(Math.random()*candidates.length)];
+  state.lastId = q.id;
+  return q;
+}
+
+/** =========================
+ *  UI
+ *  ========================= */
+const fatalEl = document.getElementById("fatal");
+const qNoEl = document.getElementById("qNo");
+const qTotalEl = document.getElementById("qTotal");
+const boxNoEl = document.getElementById("boxNo");
+const qTypeEl = document.getElementById("qType");
+const qTextEl = document.getElementById("qText");
+const optsEl = document.getElementById("opts");
+
+const submitBtn = document.getElementById("submitBtn");
+const nextBtn = document.getElementById("nextBtn");
+const skipBtn = document.getElementById("skipBtn");
+
+const resultEl = document.getElementById("result");
+const verdictEl = document.getElementById("verdict");
+const explainEl = document.getElementById("explain");
+
+const accEl = document.getElementById("acc");
+const accDetailEl = document.getElementById("accDetail");
+const barsEl = document.getElementById("bars");
+
+const modeSel = document.getElementById("modeSel");
+const modeInfo = document.getElementById("modeInfo");
+
+const exportBtn = document.getElementById("exportBtn");
+const importBtn = document.getElementById("importBtn");
+const resetBtn = document.getElementById("resetBtn");
+const ioArea = document.getElementById("ioArea");
+const ioText = document.getElementById("ioText");
+const applyImportBtn = document.getElementById("applyImportBtn");
+const closeIoBtn = document.getElementById("closeIoBtn");
+
+let current = null;
+let answered = false;
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function renderStats(){
+  const s = state.session;
+  const seen = s.seen || 0;
+  const correct = s.correct || 0;
+  const acc = seen ? Math.round((correct/seen)*100) : 0;
+  accEl.textContent = acc + "%";
+  accDetailEl.textContent = `Poprawne: ${correct} • Błędne: ${s.wrong} • Obejrzane: ${seen}`;
+
+  const act = activeQuestions();
+  const buckets = {1:0,2:0,3:0,4:0,5:0};
+  for(const q of act){
+    const b = clampBox(state.boxes[q.id] || 1);
+    buckets[b]++;
+  }
+
+  barsEl.innerHTML = "";
+  for(let b=1;b<=5;b++){
+    const row = document.createElement("div");
+    row.className = "barrow";
+    const label = document.createElement("div");
+    label.textContent = `Box ${b}`;
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    const fill = document.createElement("div");
+    fill.className = "fill";
+    const pct = act.length ? Math.round((buckets[b]/act.length)*100) : 0;
+    fill.style.width = pct + "%";
+    bar.appendChild(fill);
+    const count = document.createElement("div");
+    count.style.textAlign = "right";
+    count.textContent = `${buckets[b]}`;
+    row.appendChild(label); row.appendChild(bar); row.appendChild(count);
+    barsEl.appendChild(row);
+  }
+
+  if(modeInfo){
+    const label = (mode === "old") ? "Tylko stary test" : (mode === "new") ? "Tylko dodatkowe" : "Mix (wszystkie)";
+    modeInfo.textContent = `${label} • Aktywne pytania: ${act.length}/${QUESTIONS.length}`;
+  }
+
+  if(act.length && buckets[5] === act.length){
+    accDetailEl.textContent += " • ✅ Ukończone: wszystko w Box 5";
+  }
+}
+
+function renderQuestion(q){
+  current = q;
+  answered = false;
+  resultEl.style.display = "none";
+  verdictEl.innerHTML = "";
+  explainEl.innerHTML = "";
+
+  qTotalEl.textContent = activeQuestions().length;
+  qNoEl.textContent = (state.session.seen + 1).toString();
+  boxNoEl.textContent = clampBox(state.boxes[q.id] || 1).toString();
+
+  qTypeEl.textContent =
+    q.type === "single" ? "1 odp." :
+    q.type === "multi" ? "wiele odp." :
+    "P/F";
+
+  qTextEl.textContent = q.prompt;
+
+  optsEl.innerHTML = "";
+  const name = "q_" + q.id;
+  const inputType = (q.type === "multi") ? "checkbox" : "radio";
+
+  q.options.forEach((opt, idx) => {
+    const lab = document.createElement("label");
+    lab.className = "opt";
+    const inp = document.createElement("input");
+    inp.type = inputType;
+    inp.name = name;
+    inp.value = idx;
+    const span = document.createElement("div");
+    span.textContent = opt;
+    lab.appendChild(inp);
+    lab.appendChild(span);
+    optsEl.appendChild(lab);
+  });
+
+  submitBtn.disabled = false;
+  nextBtn.disabled = true;
+}
+
+function getSelectedIndices(){
+  const inputs = optsEl.querySelectorAll("input");
+  const sel = [];
+  inputs.forEach(inp => { if(inp.checked) sel.push(Number(inp.value)); });
+  sel.sort((a,b)=>a-b);
+  return sel;
+}
+
+function arraysEqual(a,b){
+  if(a.length !== b.length) return false;
+  for(let i=0;i<a.length;i++) if(a[i] !== b[i]) return false;
+  return true;
+}
+
+function grade(){
+  if(answered) return;
+  const selected = getSelectedIndices();
+  if(selected.length === 0){
+    alert("Zaznacz odpowiedź 🙂");
+    return;
+  }
+  answered = true;
+
+  const correct = [...current.correct].sort((a,b)=>a-b);
+  const isCorrect = arraysEqual(selected, correct);
+
+  state.stats.seen++; state.session.seen++;
+  if(isCorrect){
+    state.stats.correct++; state.session.correct++;
+    state.boxes[current.id] = clampBox((state.boxes[current.id] || 1) + 1);
+  }else{
+    state.stats.wrong++; state.session.wrong++;
+    state.boxes[current.id] = 1;
+  }
+  saveState();
+
+  resultEl.style.display = "block";
+  verdictEl.innerHTML = isCorrect
+    ? `<span class="ok">✅ Dobrze!</span> Pudełko → <b>${state.boxes[current.id]}</b>`
+    : `<span class="bad">❌ Źle.</span> Pudełko → <b>1</b>`;
+
+  const correctText = correct.map(i => `<li><b>${String.fromCharCode(65+i)}.</b> ${escapeHtml(current.options[i])}</li>`).join("");
+  const yourText = selected.map(i => `<li><b>${String.fromCharCode(65+i)}.</b> ${escapeHtml(current.options[i])}</li>`).join("");
+
+  explainEl.innerHTML = `
+    <div class="small"><b>Twoja odpowiedź:</b><ul>${yourText || "<li>(brak)</li>"}</ul></div>
+    <div class="small"><b>Poprawna odpowiedź:</b><ul>${correctText}</ul></div>
+    <div class="small" style="margin-top:8px;"><b>Wyjaśnienie:</b> ${escapeHtml(current.explain || "—")}</div>
+  `;
+
+  submitBtn.disabled = true;
+  nextBtn.disabled = false;
+  renderStats();
+}
+
+function skip(){
+  renderStats();
+  renderQuestion(pickNextQuestion());
+}
+
+/** Import/Export */
+function openIoArea(mode){
+  ioArea.style.display = "block";
+  ioArea.dataset.mode = mode;
+  if(mode === "export"){
+    ioText.value = JSON.stringify(state, null, 2);
+    ioText.focus(); ioText.select();
+    applyImportBtn.style.display = "none";
+  } else {
+    ioText.value = "";
+    ioText.focus();
+    applyImportBtn.style.display = "inline-block";
+  }
+}
+function closeIoArea(){ ioArea.style.display = "none"; ioText.value = ""; }
+
+exportBtn.addEventListener("click", ()=>openIoArea("export"));
+importBtn.addEventListener("click", ()=>openIoArea("import"));
+closeIoBtn.addEventListener("click", closeIoArea);
+
+applyImportBtn.addEventListener("click", ()=>{
+  try{
+    const parsed = JSON.parse(ioText.value);
+    if(!parsed || typeof parsed !== "object" || !parsed.boxes) throw new Error("Zły format.");
+    state = parsed;
+    for(const q of QUESTIONS){
+      if(!(q.id in state.boxes)) state.boxes[q.id] = 1;
+    }
+    saveState();
+    closeIoArea();
+    renderStats();
+    renderQuestion(pickNextQuestion());
+  }catch(e){
+    alert("Nie udało się zaimportować: " + e.message);
+  }
+});
+
+resetBtn.addEventListener("click", ()=>{
+  if(confirm("Na pewno zresetować cały postęp?")){
+    resetState();
+    renderStats();
+    renderQuestion(pickNextQuestion());
+  }
+});
+
+/** Start + eventy */
+submitBtn.addEventListener("click", grade);
+nextBtn.addEventListener("click", ()=> renderQuestion(pickNextQuestion()));
+skipBtn.addEventListener("click", skip);
+
+if(modeSel){
+  modeSel.value = mode;
+  modeSel.addEventListener("change", ()=>{
+    mode = modeSel.value;
+    localStorage.setItem(MODE_KEY, mode);
+    // reset sesji (tylko statystyki sesji) po zmianie trybu
+    state.session = {seen:0, correct:0, wrong:0};
+    saveState();
+    renderStats();
+    renderQuestion(pickNextQuestion());
+  });
+}
+
+document.addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){
+    if(!answered) grade();
+    else if(!nextBtn.disabled) renderQuestion(pickNextQuestion());
+  }
+  if(e.key.toLowerCase() === "r"){
+    if(confirm("Reset postępu (R)?")){ resetState(); renderStats(); renderQuestion(pickNextQuestion()); }
+  }
+});
+
+function fatal(msg){
+  fatalEl.style.display = "block";
+  fatalEl.textContent = msg;
+}
+
+try{
+  loadState();
+  renderStats();
+  renderQuestion(pickNextQuestion());
+}catch(e){
+  console.error(e);
+  fatal("Coś poszło nie tak przy uruchamianiu quizu. Spróbuj odświeżyć stronę. Jeśli problem wraca, użyj przycisku „Reset postępu”. (Szczegóły w konsoli przeglądarki)");
+}
+</script>
+</body>
+</html>
